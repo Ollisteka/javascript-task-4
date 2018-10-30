@@ -97,7 +97,7 @@ function getEmitter() {
 
             if (!event.includes('.')) {
                 Array.from(events.keys())
-                    .filter(str => str.startsWith(event))
+                    .filter(str => str === event || str.startsWith(event + '.'))
                     .forEach(e => events.set(e, getFilteredSubscribers(e, context)));
             } else if (events.has(event)) {
                 events.set(event, getFilteredSubscribers(event, context));
