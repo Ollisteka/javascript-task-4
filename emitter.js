@@ -10,16 +10,9 @@ class Subscriber {
     constructor(context, handler, times, frequency) {
         this.context = context;
         this.handler = handler;
-        this.times = Infinity;
         this.counter = 0;
-        this.frequency = 1;
-        if (times && times > 0) {
-            this.times = times;
-        }
-
-        if (frequency && frequency > 0) {
-            this.frequency = frequency;
-        }
+        this.times = times && times > 0 ? times : Infinity;
+        this.frequency = frequency && frequency > 0 ? frequency : 1;
     }
 
     call() {
@@ -55,18 +48,23 @@ function getEventsList(eventName) {
 function getEmitter() {
     let events = new Map();
 
-    function getFilteredSubscribers(event, context) {
+    function getSubscribers(event, filterFunc) {
         return events.get(event)
-            .filter(subscriber => subscriber.context !== context);
+            .filter(filterFunc);
     }
 
-    // eslint-disable-next-line max-params
-    function addSubscriber(event, context, handler, times, frequency) {
-        if (!events.has(event)) {
-            events.set(event, []);
+    function addSubscriber(eventName, subscriberParams) {
+        const {
+            context,
+            handler,
+            times,
+            frequency
+        } = subscriberParams;
+        if (!events.has(eventName)) {
+            events.set(eventName, []);
         }
 
-        events.get(event).push(new Subscriber(context, handler, times, frequency));
+        events.get(eventName).push(new Subscriber(context, handler, times, frequency));
 
     }
 
@@ -80,8 +78,10 @@ function getEmitter() {
          * @returns {Object}
          */
         on: function (event, context, handler) {
-            console.info(event, context, handler);
-            addSubscriber(event, context, handler);
+            addSubscriber(event, {
+                context: context,
+                handler: handler
+            });
 
             return this;
         },
@@ -93,15 +93,11 @@ function getEmitter() {
          * @returns {Object}
          */
         off: function (event, context) {
-            console.info(event, context);
-
-            if (!event.includes('.')) {
-                Array.from(events.keys())
-                    .filter(str => str === event || str.startsWith(event + '.'))
-                    .forEach(e => events.set(e, getFilteredSubscribers(e, context)));
-            } else if (events.has(event)) {
-                events.set(event, getFilteredSubscribers(event, context));
-            }
+            Array.from(events.keys())
+                .filter(eventName => eventName === event || eventName.startsWith(event + '.'))
+                .forEach(innerEvent =>
+                    events.set(innerEvent,
+                        getSubscribers(innerEvent, subscriber => subscriber.context !== context)));
 
             return this;
         },
@@ -112,13 +108,12 @@ function getEmitter() {
          * @returns {Object}
          */
         emit: function (event) {
-            console.info(event);
-            getEventsList(event).forEach(e => {
-                if (!events.has(e)) {
+            getEventsList(event).forEach(innerEvent => {
+                if (!events.has(innerEvent)) {
                     return this;
                 }
 
-                events.get(e).forEach(subscriber => {
+                events.get(innerEvent).forEach(subscriber => {
                     if (subscriber.eligibleForCall()) {
                         subscriber.call();
                     }
@@ -139,8 +134,11 @@ function getEmitter() {
          * @returns {Object}
          */
         several: function (event, context, handler, times) {
-            console.info(event, context, handler, times);
-            addSubscriber(event, context, handler, times);
+            addSubscriber(event, {
+                context: context,
+                handler: handler,
+                times: times
+            });
 
             return this;
         },
@@ -155,8 +153,11 @@ function getEmitter() {
          * @returns {Object}
          */
         through: function (event, context, handler, frequency) {
-            console.info(event, context, handler, frequency);
-            addSubscriber(event, context, handler, undefined, frequency);
+            addSubscriber(event, {
+                context: context,
+                handler: handler,
+                frequency: frequency
+            });
 
             return this;
         }
